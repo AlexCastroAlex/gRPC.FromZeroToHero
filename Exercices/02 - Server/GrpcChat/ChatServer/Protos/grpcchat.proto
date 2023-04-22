@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+option csharp_namespace = "ChatServer.Protos";
+
+package chatgrpc;
+
+message RoomRegistrationRequest {
+	string roomId = 1;
+}
+
+message RoomRegistrationResponse {
+	int32 room_id = 1;
+}
+
+service ChatGrpcService {
+	rpc RegisterToRoom(RoomRegistrationRequest) returns (RoomRegistrationResponse);
+}

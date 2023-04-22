@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+option csharp_namespace = "ChatServer.Protos";
+
+package chatgrpc;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+message RoomRegistrationRequest {
+	string room_name = 1;
+	string user_name = 2; 
+}
+
+message RoomRegistrationResponse {
+	bool joined_room = 1;
+}
+
+message ChatMessage {
+	google.protobuf.Timestamp msg_time = 1 ;
+	string content = 2 ;
+	string user_name = 3 ;
+	string room_name = 4; 
+}
+
+message CounterRequest {
+  int32 start = 1;
+}
+
+message CounterResponse {
+  int32 count = 1;
+}
+
+message ChatMessageResponse {
+	bool success =1 ;
+}
+
+message RoomRequestMessage {
+	string user_name = 1 ;
+	string room_name = 2; 
+}
+
+message ReceivedMessage {
+	google.protobuf.Timestamp msg_time = 1 ;
+	string content = 2;
+	string user = 3;
+}
+
+service ChatGrpcService {
+	rpc RegisterToRoom(RoomRegistrationRequest) returns (RoomRegistrationResponse);
+	rpc StartCounter (CounterRequest) returns (stream CounterResponse);
+	rpc SendMessage(ChatMessage) returns (ChatMessageResponse);
+	rpc PullMessages(RoomRequestMessage) returns (stream ChatMessage);
+}

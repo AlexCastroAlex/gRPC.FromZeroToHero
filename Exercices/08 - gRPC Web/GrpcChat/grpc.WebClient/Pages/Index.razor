@@ -1,0 +1,148 @@
+﻿@page "/"
+@using Google.Protobuf.WellKnownTypes;
+@using Grpc.Core;
+@using Grpc.Net.Client
+@using Grpc.Net.Client.Web
+@using ChatServer.Protos
+@inject GrpcChannel Channel
+
+<PageTitle>Index</PageTitle>
+
+
+
+Welcome to the chat app !
+<br />
+
+<EditForm Model="@roomRegistrationRequest" OnSubmit="@ConnectToChatRoom">
+    <InputText id="roomname" @bind-Value="roomRegistrationRequest.RoomName" />
+    <InputText id="username" @bind-Value="roomRegistrationRequest.UserName" />
+    <button type="submit">Submit</button>
+</EditForm>
+<br />
+<InputText id="message" @bind-Value="message" />
+<button type="submit" @onclick="SendMessage">Submit</button>
+<br />
+<br />
+<br />
+<br />
+<br />
+<br />
+<br />
+@*<RadzenDataGrid AllowFiltering="true" AllowColumnResize="true" AllowAlternatingRows="false" FilterMode="FilterMode.Advanced" AllowSorting="true" PageSize="5" AllowPaging="true" PagerHorizontalAlign="HorizontalAlign.Left" ShowPagingSummary="true"
+                Data="@listMessage" TItem="ChatMessage" ColumnWidth="300px" LogicalFilterOperator="LogicalFilterOperator.Or">
+    <Columns>
+        <RadzenDataGridColumn TItem="ChatMessage" Property="UserName" Filterable="false" Title="UserName" Frozen="true" Width="80px" TextAlign="TextAlign.Center" />
+        <RadzenDataGridColumn TItem="ChatMessage" Property="MsgTime" Title="Message Time" Frozen="true" Width="160px" />
+        <RadzenDataGridColumn TItem="ChatMessage" Property="Content" Title="Message" Width="300px" />
+    </Columns>
+</RadzenDataGrid>*@
+
+<table class="table">
+    <thead>
+    <tr>
+            <th>UserName</th>
+            <th>Message Time</th>
+            <th>Message)</th>
+    </tr>
+    </thead>
+    <tbody>
+    @foreach (var mess in listMessage)
+    {
+        <tr>
+            <td>@mess.UserName</td>
+            <td>@mess.MsgTime.ToDateTime().ToShortDateString()</td>
+            <td>@mess.Content</td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+
+@code {
+    private RoomRegistrationRequest roomRegistrationRequest = new RoomRegistrationRequest();
+    private string message = string.Empty;
+    private List<ChatMessage> listMessage = new();
+    private CancellationTokenSource cts;
+    private async Task ConnectToChatRoom()
+    {
+        cts = new CancellationTokenSource();
+        var client = new ChatGrpcService.ChatGrpcServiceClient(Channel);
+       
+        try
+        {
+            var res = await client.RegisterToRoomAsync(roomRegistrationRequest);
+            using var call = client.StartChatting(cancellationToken: cts.Token);
+
+            await foreach (var message in call.ResponseStream.ReadAllAsync())
+            {
+                listMessage.Add(message);
+                StateHasChanged();
+            }
+
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            throw;
+        }
+
+    }
+
+    private async Task SendMessage()
+    {
+        try
+        {
+            var client = new ChatGrpcService.ChatGrpcServiceClient(Channel);
+            using var call = client.StartChatting();
+            RestoreInputCursor();
+            var reqMessage = new ChatMessage
+            {
+                Content = message,
+                MsgTime = Timestamp.FromDateTime(DateTime.UtcNow),
+                RoomName = roomRegistrationRequest.RoomName,
+                UserName = roomRegistrationRequest.UserName
+            };
+            await call.RequestStream.WriteAsync(reqMessage);
+            await foreach (var message in call.ResponseStream.ReadAllAsync())
+            {
+                listMessage.Add(message);
+                StateHasChanged();
+            }
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            throw;
+        }
+       
+    }
+
+
+    async Task PrintMessage(ChatMessage msg)
+    {
+        listMessage.Add(msg);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    //async Task PullMessages()
+    //{
+
+    //    if (await callChat.ResponseStream.MoveNext())
+    //    {
+    //        var message = callChat.ResponseStream.Current;
+    //        //cursor position to stay at same position when we receive a message
+    //        await PrintMessage(message);
+    //    }
+    //    //wait for 0.5 sec before checking for new message
+    //    await Task.Delay(500);
+            
+
+    //}
+
+    void RestoreInputCursor()
+    {
+        message = string.Empty;
+    }
+}
+
+

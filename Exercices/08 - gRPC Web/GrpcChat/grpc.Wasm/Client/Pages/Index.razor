@@ -1,0 +1,152 @@
+﻿@page "/"
+@using Microsoft.AspNetCore.Components
+@using ChatServer.Protos
+@using Google.Protobuf.WellKnownTypes
+@using Grpc.Core
+@using System.Threading.Channels
+@using Grpc.Net.Client
+@inject GrpcChannel Channel
+
+<PageTitle>Index</PageTitle>
+
+<h1>Hello, world!</h1>
+
+
+Welcome to the chat app !
+<br />
+
+<EditForm Model="@roomRegistrationRequest" OnSubmit="@ConnectToChatRoom">
+    <InputText id="roomname" @bind-Value="roomRegistrationRequest.RoomName" />
+    <InputText id="username" @bind-Value="roomRegistrationRequest.UserName" />
+    <button type="submit" disabled="@Connected">Submit</button>
+</EditForm>
+<br />
+<InputText id="message" @bind-Value="message" />
+<button type="submit" @onclick="SendMessage">Submit</button>
+<br />
+<br />
+<br />
+<br />
+<br />
+<br />
+<br />
+
+<table class="table">
+    <thead>
+    <tr>
+        <th>UserName</th>
+        <th>Message Time</th>
+        <th>Message)</th>
+    </tr>
+    </thead>
+    <tbody>
+    @foreach (var mess in listMessage)
+    {
+        <tr>
+            <td>@mess.UserName</td>
+            <td>@mess.MsgTime.ToDateTime().ToShortDateString()</td>
+            <td>@mess.Content</td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+
+@code {
+    private RoomRegistrationRequest roomRegistrationRequest = new RoomRegistrationRequest();
+    private string message = string.Empty;
+    private List<ChatMessage> listMessage = new();
+    private CancellationTokenSource cts;
+    private bool Connected = false;
+
+    private async Task ConnectToChatRoom()
+    {
+        cts = new CancellationTokenSource();
+        var client = new ChatGrpcService.ChatGrpcServiceClient(Channel);
+
+        try
+        {
+            var res = await client.RegisterToRoomAsync(roomRegistrationRequest);
+            if (res.JoinedRoom)
+            {
+                Connected = true;
+                await PullMessages();
+            }
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            throw;
+        }
+
+    }
+
+    private async Task SendMessage()
+    {
+        try
+        {
+            var client = new ChatGrpcService.ChatGrpcServiceClient(Channel);
+            var msg = message;
+            RestoreInputCursor();
+            var reqMessage = new ChatMessage
+                {
+                    Content = msg,
+                    MsgTime = Timestamp.FromDateTime(DateTime.UtcNow),
+                    RoomName = roomRegistrationRequest.RoomName,
+                    UserName = roomRegistrationRequest.UserName
+                };
+            await client.SendMessageAsync(reqMessage);
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            throw;
+        }
+
+    }
+
+    void PrintMessage(ChatMessage msg)
+    {
+        listMessage.Add(msg);
+        StateHasChanged();
+    }
+
+    async Task PullMessages()
+    {
+
+        var client = new ChatGrpcService.ChatGrpcServiceClient(Channel);
+        var call = client.PullMessages(new RoomRequestMessage { RoomName = roomRegistrationRequest.RoomName , UserName = roomRegistrationRequest.UserName});
+        var task = Task.Run(async () =>
+        {
+
+            while (true)
+            {
+                try
+                {
+                    if (await call.ResponseStream.MoveNext())
+                    {
+                        var message  = call.ResponseStream.Current;
+                        Console.WriteLine(message);
+                        PrintMessage(message);
+                    }
+                }
+                catch (Grpc.Core.RpcException e)
+                {
+                    if (e.StatusCode == StatusCode.Cancelled)
+                    {
+                        Console.WriteLine("Chat Cancelled");
+                        break;
+                    }
+                }
+      
+            }
+        });
+
+
+    }
+
+    void RestoreInputCursor()
+    {
+        message = string.Empty;
+    }
+}

@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+option csharp_namespace = "ChatServer.Protos";
+
+package chatgrpc;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+
+message ReceivedMessage {
+	google.protobuf.Timestamp msg_time = 1 ;
+	string content = 2;
+	string user = 3;
+}
+
+service ChatGrpcService {
+	rpc StartMonitoring(google.protobuf.Empty) returns (stream ReceivedMessage);
+}

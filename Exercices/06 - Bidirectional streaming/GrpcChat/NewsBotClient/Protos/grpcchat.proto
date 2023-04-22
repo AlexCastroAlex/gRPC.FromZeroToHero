@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+option csharp_namespace = "ChatServer.Protos";
+import "google/protobuf/timestamp.proto";
+package chatgrpc;
+
+message NewsFlash {
+	google.protobuf.Timestamp news_time = 1 ;
+	string news_item = 2 ;
+}
+
+message NewsStreamStatus {
+	bool success =1 ;
+}
+
+service ChatGrpcService {
+	rpc SendNewsFlash(stream NewsFlash) returns (NewsStreamStatus);
+}
