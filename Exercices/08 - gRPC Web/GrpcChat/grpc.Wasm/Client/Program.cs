@@ -14,14 +14,9 @@ builder.Services.AddSingleton(services =>
 {
     // Get the service address from appsettings.json
     var config = services.GetRequiredService<IConfiguration>();
-    var backendUrl = config["BackendUrl"];
 
-    // If no address is set then fallback to the current webpage URL
-    if (string.IsNullOrEmpty(backendUrl))
-    {
-        var navigationManager = services.GetRequiredService<NavigationManager>();
-        backendUrl = navigationManager.BaseUri;
-    }
+    var navigationManager = services.GetRequiredService<NavigationManager>();
+    var backendUrl = navigationManager.BaseUri;
 
     // Create a channel with a GrpcWebHandler that is addressed to the backend server.
     //
